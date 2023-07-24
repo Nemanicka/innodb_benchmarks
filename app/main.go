@@ -32,33 +32,15 @@ func prepareStmt(ctx context.Context, conn *sql.Conn, tableName string) *sql.Stm
 	return stmtIns
 }
 
-func insertData(ctx context.Context, conn *sql.Conn, tableName string) {
+func insertData(stmtIns *sql.Stmt) {
 	date := time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 
-	var tx *sql.Tx
-	txOptions := sql.TxOptions{}
-
 	for i := 0; i < rowsCount; i++ {
-		if i%10000 == 0 {
-			fmt.Println(i)
-			if tx != nil {
-				commitErr := tx.Commit()
-				if commitErr != nil {
-					log.Fatal(commitErr)
-				}
-			}
-
-			var txErr error
-			tx, txErr = conn.BeginTx(ctx, &txOptions)
-			if txErr != nil {
-				fmt.Println(txErr)
-			}
-		}
 		date = date.Add(1 * time.Minute)
-
-		query := fmt.Sprintf("INSERT INTO %s VALUES( ?, ? )", tableName)
-
-		_, err := tx.Exec(query, i, date)
+		if i%1000 == 0 {
+			fmt.Println(i, date)
+		}
+		_, err := stmtIns.Exec(i, date)
 		if err != nil {
 			if strings.Contains(err.Error(), "Duplicate entry") {
 				fmt.Println("Duplicate", i)
@@ -69,17 +51,17 @@ func insertData(ctx context.Context, conn *sql.Conn, tableName string) {
 	}
 }
 
-// func checkRowsCount(ctx context.Context, conn *sql.Conn, tableName string) {
-// 	var actualRowsCount int
-// 	err := conn.QueryRowContext(ctx, "Select Count(id) FROM "+tableName).Scan(&actualRowsCount)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
+func checkRowsCount(ctx context.Context, conn *sql.Conn, tableName string) {
+	var actualRowsCount int
+	err := conn.QueryRowContext(ctx, "Select Count(id) FROM "+tableName).Scan(&actualRowsCount)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-// 	if actualRowsCount != int(rowsCount) {
-// 		log.Fatalln("Expected rows count:", actualRowsCount, ", actual rows count:", rowsCount)
-// 	}
-// }
+	if actualRowsCount != int(rowsCount) {
+		log.Fatalln("Expected rows count:", actualRowsCount, ", actual rows count:", rowsCount)
+	}
+}
 
 func createData(ctx context.Context, conn *sql.Conn) {
 	_, tableCreateError := conn.QueryContext(ctx, "CREATE TABLE IF NOT EXISTS UsersNoIndex ( id INT UNIQUE, birthDate DATE)")
@@ -109,31 +91,31 @@ func createData(ctx context.Context, conn *sql.Conn) {
 	deleteData(ctx, conn, "UsersBtreeIndex")
 	BtreeIndexEndDelete := time.Now()
 
-	// stmtInsNoIndex := prepareStmt(ctx, conn, "UsersNoIndex")
-	// defer stmtInsNoIndex.Close()
+	stmtInsNoIndex := prepareStmt(ctx, conn, "UsersNoIndex")
+	defer stmtInsNoIndex.Close()
 
-	// stmtInsHashIndex := prepareStmt(ctx, conn, "UsersHashIndex")
-	// defer stmtInsHashIndex.Close()
+	stmtInsHashIndex := prepareStmt(ctx, conn, "UsersHashIndex")
+	defer stmtInsHashIndex.Close()
 
-	// stmtInsBtreeIndex := prepareStmt(ctx, conn, "UsersBtreeIndex")
-	// defer stmtInsBtreeIndex.Close()
+	stmtInsBtreeIndex := prepareStmt(ctx, conn, "UsersBtreeIndex")
+	defer stmtInsBtreeIndex.Close()
 
 	// Verify rows count
 
 	noIndexStartInsert := time.Now()
-	insertData(ctx, conn, "UsersNoIndex")
+	insertData(stmtInsNoIndex)
 	noIndexEndInsert := time.Now()
 
 	// checkRowsCount(ctx, conn, "UsersNoIndex")
 
 	HashIndexStartInsert := time.Now()
-	insertData(ctx, conn, "UsersHashIndex")
+	insertData(stmtInsHashIndex)
 	HashIndexEndInsert := time.Now()
 
 	// checkRowsCount(ctx, conn, "UsersHashIndex")
 
 	BtreeIndexStartInsert := time.Now()
-	insertData(ctx, conn, "UsersBtreeIndex")
+	insertData(stmtInsBtreeIndex)
 	BtreeIndexEndInsert := time.Now()
 
 	// checkRowsCount(ctx, conn, "UsersBtreeIndex")
