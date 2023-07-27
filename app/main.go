@@ -37,7 +37,7 @@ func insertData(stmtIns *sql.Stmt) {
 
 	for i := 0; i < rowsCount; i++ {
 		date = date.Add(1 * time.Minute)
-		if i%1000 == 0 {
+		if i%10000 == 0 {
 			fmt.Println(i, date)
 		}
 		_, err := stmtIns.Exec(i, date)
@@ -51,6 +51,11 @@ func insertData(stmtIns *sql.Stmt) {
 	}
 }
 
+// /
+// /Insert Execution time:
+// No Index   :  2180.6530592
+// Hash Index :  2193.4942367
+// Btree Index:  2283.5473962
 func checkRowsCount(ctx context.Context, conn *sql.Conn, tableName string) {
 	var actualRowsCount int
 	err := conn.QueryRowContext(ctx, "Select Count(id) FROM "+tableName).Scan(&actualRowsCount)
@@ -106,24 +111,24 @@ func createData(ctx context.Context, conn *sql.Conn) {
 	insertData(stmtInsNoIndex)
 	noIndexEndInsert := time.Now()
 
+	fmt.Println("Insert Execution time:")
+	fmt.Println("No Index   : ", noIndexEndInsert.Sub(noIndexStartInsert).Seconds())
+
 	// checkRowsCount(ctx, conn, "UsersNoIndex")
 
 	HashIndexStartInsert := time.Now()
 	insertData(stmtInsHashIndex)
 	HashIndexEndInsert := time.Now()
+	fmt.Println("Hash Index : ", HashIndexEndInsert.Sub(HashIndexStartInsert).Seconds())
 
 	// checkRowsCount(ctx, conn, "UsersHashIndex")
 
 	BtreeIndexStartInsert := time.Now()
 	insertData(stmtInsBtreeIndex)
 	BtreeIndexEndInsert := time.Now()
+	fmt.Println("Btree Index: ", BtreeIndexEndInsert.Sub(BtreeIndexStartInsert).Seconds())
 
 	// checkRowsCount(ctx, conn, "UsersBtreeIndex")
-
-	fmt.Println("Insert Execution time:")
-	fmt.Println("No Index   : ", noIndexEndInsert.Sub(noIndexStartInsert).Seconds())
-	fmt.Println("Hash Index : ", HashIndexEndInsert.Sub(HashIndexStartInsert).Seconds())
-	fmt.Println("Btree Index: ", BtreeIndexEndInsert.Sub(BtreeIndexStartInsert).Seconds())
 
 	fmt.Println("Delete Execution time:")
 	fmt.Println("No Index   : ", noIndexEndDelete.Sub(noIndexStartDelete).Seconds())
@@ -132,19 +137,41 @@ func createData(ctx context.Context, conn *sql.Conn) {
 }
 
 func selectData(ctx context.Context, conn *sql.Conn) {
+	noIndexStartSelect := time.Now()
 	selectTableData(ctx, conn, "UsersNoIndex")
+	noIndexEndSelect := time.Now()
+
+	HashIndexStartSelect := time.Now()
+	selectTableData(ctx, conn, "UsersHashIndex")
+	HashIndexEndSelect := time.Now()
+
+	BtreeIndexStartSelect := time.Now()
+	selectTableData(ctx, conn, "UsersBtreeIndex")
+	BtreeIndexEndSelect := time.Now()
+
+	fmt.Println("Select Execution time:")
+	fmt.Println("No Index   : ", noIndexEndSelect.Sub(noIndexStartSelect).Seconds())
+	fmt.Println("Hash Index : ", HashIndexEndSelect.Sub(HashIndexStartSelect).Seconds())
+	fmt.Println("Btree Index: ", BtreeIndexEndSelect.Sub(BtreeIndexStartSelect).Seconds())
+
 }
 
 func selectTableData(ctx context.Context, conn *sql.Conn, tableName string) {
-	var actualRowsCount int
-	err := conn.QueryRowContext(ctx, "Select count(birthDate) FROM "+tableName).Scan(&actualRowsCount)
+	rows, err := conn.QueryContext(ctx,
+		`SELECT birthDate FROM `+tableName+` WHERE birthDate>'0010-06-02'  
+        ORDER BY birthDate DESC LIMIT 10000`)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if actualRowsCount != int(rowsCount) {
-		log.Fatalln("Expected rows count:", actualRowsCount, ", actual rows count:", rowsCount)
+	birthDates := make([]string, 1000)
+	var birthDate string
+	for rows.Next() {
+		rows.Scan(&birthDate)
+		birthDates = append(birthDates, birthDate)
 	}
+
+	fmt.Println(birthDates)
 }
 
 func main() {
@@ -153,7 +180,7 @@ func main() {
 		return
 	}
 
-	db, err := sql.Open("mysql", "root:pass@/mysql")
+	db, err := sql.Open("mysql", "root:pass@/mysql_flush_tx_1")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -169,3 +196,9 @@ func main() {
 		selectData(ctx, conn)
 	}
 }
+
+// No Index   :  2128.2172231
+// Hash Index :  2128.8227601
+// Btree Index:  2090.8328692
+//
+//
