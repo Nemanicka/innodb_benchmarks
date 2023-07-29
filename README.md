@@ -20,9 +20,9 @@
 ## Create statements
 
 *No index
-''' CREATE TABLE IF NOT EXISTS UsersNoIndex ( id INT UNIQUE, birthDate DATE)'''
+``` CREATE TABLE IF NOT EXISTS UsersNoIndex ( id INT UNIQUE, birthDate DATE)```
 *Hash index
-'''CREATE TABLE IF NOT EXISTS UsersHashIndex ( id INT UNIQUE, birthDate DATE,  INDEX birthDate_hash (birthDate) USING HASH'''
+```CREATE TABLE IF NOT EXISTS UsersHashIndex ( id INT UNIQUE, birthDate DATE,  INDEX birthDate_hash (birthDate) USING HASH```
 *Btree index
-'''CREATE TABLE IF NOT EXISTS UsersBtreeIndex ( id INT UNIQUE, birthDate DATE,  INDEX birthDate_btree (birthDate))'''
+```CREATE TABLE IF NOT EXISTS UsersBtreeIndex ( id INT UNIQUE, birthDate DATE,  INDEX birthDate_btree (birthDate))```
 
